@@ -41,11 +41,11 @@ function getDiff(target) {
 /* ---------- i18n ---------- */
 const T = {
   pt: {
-    nav: ["Início", "Programa", "Mapa", "Mesas", "Alertas", "Galeria", "Alojamento"],
+    nav: ["Início", "Programa", "Mapa", "Mesas", "Novidades", "Galeria", "Alojamento"],
     date: "14 de Agosto de 2026",
     days: "Dias", hours: "Horas", minutes: "Minutos", seconds: "Segundos",
     schedule: "Programa do dia", map: "Indicações", openMaps: "Abrir no mapa",
-    tables: "Plano de mesas", alerts: "Alertas em tempo real", gallery: "Galeria",
+    tables: "Plano de mesas", alerts: "Novidades", gallery: "Galeria",
     galleryHint: "Carrega as tuas fotografias e vídeos — toda a gente vê a galeria em conjunto.",
     upload: "Carregar fotos / vídeos", uploading: "A carregar…",
     admin: "Administração", adminLogin: "Entrar", adminPlaceholder: "Palavra-passe",
@@ -59,11 +59,11 @@ const T = {
     noGuestFound: "Nenhum convidado encontrado com esse nome.",
   },
   en: {
-    nav: ["Home", "Schedule", "Map", "Tables", "Alerts", "Gallery", "Stay"],
+    nav: ["Home", "Schedule", "Map", "Tables", "Updates", "Gallery", "Stay"],
     date: "August 14th, 2026",
     days: "Days", hours: "Hours", minutes: "Minutes", seconds: "Seconds",
     schedule: "Day schedule", map: "Directions", openMaps: "Open in maps",
-    tables: "Seating plan", alerts: "Real-time alerts", gallery: "Gallery",
+    tables: "Seating plan", alerts: "Updates", gallery: "Gallery",
     galleryHint: "Upload your photos and videos — everyone shares one gallery.",
     upload: "Upload photos / videos", uploading: "Uploading…",
     admin: "Admin", adminLogin: "Log in", adminPlaceholder: "Password",
@@ -139,35 +139,37 @@ export default function App() {
     <div style={styles.app}>
       <FontStyles />
 
-      <header style={styles.header}>
-        <div style={styles.logo}>
-          Vanessa <span style={{ fontStyle: "italic", fontWeight: 400 }}>&</span> Pedro
-        </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <button onClick={() => setLang(lang === "pt" ? "en" : "pt")} style={styles.pill}>
-            {tr.translate}
-          </button>
-          <button onClick={() => setShowAdmin(true)} style={{ ...styles.pill, opacity: 0.6 }}>
-            {tr.admin}
-          </button>
-        </div>
-      </header>
+      <div style={styles.stickyTop}>
+        <header style={styles.header}>
+          <div style={styles.logo}>
+            Vanessa <span style={{ fontStyle: "italic", fontWeight: 400 }}>&</span> Pedro
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button onClick={() => setLang(lang === "pt" ? "en" : "pt")} style={styles.pill}>
+              {tr.translate}
+            </button>
+            <button onClick={() => setShowAdmin(true)} style={{ ...styles.pill, opacity: 0.6 }}>
+              {tr.admin}
+            </button>
+          </div>
+        </header>
 
-      <nav style={styles.nav}>
-        {tr.nav.map((n, i) => (
-          <button
-            key={i}
-            onClick={() => setSection(i)}
-            style={{
-              ...styles.navBtn,
-              background: section === i ? NAVY : "transparent",
-              color: section === i ? "#fff" : NAVY,
-            }}
-          >
-            {n}
-          </button>
-        ))}
-      </nav>
+        <nav style={styles.nav}>
+          {tr.nav.map((n, i) => (
+            <button
+              key={i}
+              onClick={() => setSection(i)}
+              style={{
+                ...styles.navBtn,
+                background: section === i ? NAVY : "transparent",
+                color: section === i ? "#fff" : NAVY,
+              }}
+            >
+              {n}
+            </button>
+          ))}
+        </nav>
+      </div>
 
       {!hasSupabase && (
         <div style={styles.offlineBar}>{tr.offline}</div>
@@ -390,7 +392,17 @@ function Gallery({ tr, gallery, setGallery, admin }) {
   const inputRef = useRef();
   const [uploads, setUploads] = useState({}); // id -> progress
   const [showQR, setShowQR] = useState(false);
+  const [lightbox, setLightbox] = useState(null); // media a mostrar em grande
+  const [mine, setMine] = useState(() => loadMine()); // ids que este telemóvel carregou
   const pageUrl = typeof window !== "undefined" ? window.location.href : "";
+
+  const markMine = (id) => {
+    setMine((prev) => {
+      const next = Array.from(new Set([...prev, id]));
+      saveMine(next);
+      return next;
+    });
+  };
 
   const onFiles = async (e) => {
     const files = Array.from(e.target.files);
@@ -405,15 +417,16 @@ function Gallery({ tr, gallery, setGallery, admin }) {
           );
           const item = { url: res.url, type: res.type, public_id: res.publicId };
           const saved = await addGalleryItem(item);
-          setGallery((g) => [saved || { id: tmpId, ...item }, ...g]);
+          const final = saved || { id: tmpId, ...item };
+          setGallery((g) => [final, ...g]);
+          markMine(final.id);
         } else {
-          // fallback local
           const reader = new FileReader();
-          reader.onload = () =>
-            setGallery((g) => [
-              { id: tmpId, url: reader.result, type: f.type.startsWith("video") ? "video" : "image" },
-              ...g,
-            ]);
+          reader.onload = () => {
+            const item = { id: tmpId, url: reader.result, type: f.type.startsWith("video") ? "video" : "image" };
+            setGallery((g) => [item, ...g]);
+            markMine(tmpId);
+          };
           reader.readAsDataURL(f);
         }
       } catch (err) {
@@ -430,9 +443,11 @@ function Gallery({ tr, gallery, setGallery, admin }) {
 
   const remove = async (id) => {
     setGallery((g) => g.filter((x) => x.id !== id));
+    setLightbox(null);
     await deleteGalleryItem(id);
   };
 
+  const canDelete = (m) => admin || mine.includes(m.id);
   const uploadList = Object.entries(uploads);
 
   return (
@@ -485,30 +500,63 @@ function Gallery({ tr, gallery, setGallery, admin }) {
       <div style={styles.galleryGrid}>
         {gallery.map((m) => (
           <div key={m.id} style={{ position: "relative" }}>
-            {m.type === "video" ? (
-              <video src={m.url} controls style={styles.thumb} />
-            ) : (
-              <img src={m.url} alt="" style={styles.thumb} loading="lazy" />
-            )}
-            <a
-              href={downloadUrl(m.url)}
-              download
-              style={styles.dlThumb}
-              title={tr.download}
-              onClick={(e) => e.stopPropagation()}
-            >
-              ↓
-            </a>
-            {admin && (
-              <button onClick={() => remove(m.id)} style={styles.delThumb}>
+            <div onClick={() => setLightbox(m)} style={{ cursor: "pointer" }}>
+              {m.type === "video" ? (
+                <div style={{ position: "relative" }}>
+                  <video src={m.url} style={styles.thumb} />
+                  <div style={styles.playBadge}>▶</div>
+                </div>
+              ) : (
+                <img src={m.url} alt="" style={styles.thumb} loading="lazy" />
+              )}
+            </div>
+            {canDelete(m) && (
+              <button onClick={(e) => { e.stopPropagation(); remove(m.id); }} style={styles.delThumb}>
                 ✕
               </button>
             )}
           </div>
         ))}
       </div>
+
+      {lightbox && (
+        <div style={styles.lightbox} onClick={() => setLightbox(null)}>
+          <button onClick={() => setLightbox(null)} style={styles.lbClose}>✕</button>
+          <div style={styles.lbContent} onClick={(e) => e.stopPropagation()}>
+            {lightbox.type === "video" ? (
+              <video src={lightbox.url} controls autoPlay style={styles.lbMedia} />
+            ) : (
+              <img src={lightbox.url} alt="" style={styles.lbMedia} />
+            )}
+            <div style={styles.lbActions}>
+              <a href={downloadUrl(lightbox.url)} download style={styles.linkBtn}>
+                ↓ {tr.download}
+              </a>
+              {canDelete(lightbox) && (
+                <button onClick={() => remove(lightbox.id)} style={styles.lbDelete}>
+                  {tr.delete}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
+}
+
+// Marca (no próprio navegador) os media que este telemóvel carregou.
+function loadMine() {
+  try {
+    return JSON.parse(localStorage.getItem("vp_my_uploads") || "[]");
+  } catch {
+    return [];
+  }
+}
+function saveMine(arr) {
+  try {
+    localStorage.setItem("vp_my_uploads", JSON.stringify(arr));
+  } catch {}
 }
 
 // Constrói um URL do Cloudinary que força o download (fl_attachment).
@@ -632,7 +680,7 @@ function AdminEditor({ tr, content, setContent, data, setData, onLogout }) {
 
   const tabs = [
     ["text", "Textos"], ["schedule", "Programa"], ["locations", "Mapa"],
-    ["tables", "Mesas"], ["alerts", "Alertas"], ["accommodation", "Alojamento"], ["photo", "Foto"],
+    ["tables", "Mesas"], ["alerts", "Novidades"], ["accommodation", "Alojamento"], ["photo", "Foto"],
   ];
 
   return (
@@ -893,9 +941,10 @@ function FontStyles() {
 
 const styles = {
   app: { minHeight: "100vh", background: "#fff", color: NAVY, fontFamily: "'Jost',sans-serif", overflowX: "hidden" },
-  header: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: `1px solid ${NAVY}15`, position: "sticky", top: 0, background: "rgba(255,255,255,0.92)", backdropFilter: "blur(10px)", zIndex: 50 },
+  stickyTop: { position: "sticky", top: 0, zIndex: 50, background: "#fff" },
+  header: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: `1px solid ${NAVY}15`, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(10px)" },
+  nav: { display: "flex", gap: 6, overflowX: "auto", padding: "14px 24px", borderBottom: `1px solid ${NAVY}10`, background: "#fff" },
   logo: { fontFamily: "'Cormorant Garamond',serif", fontSize: 24, letterSpacing: 1, fontWeight: 600 },
-  nav: { display: "flex", gap: 6, overflowX: "auto", padding: "14px 24px", borderBottom: `1px solid ${NAVY}10`, position: "sticky", top: 61, background: "#fff", zIndex: 40 },
   navBtn: { border: "none", padding: "8px 16px", borderRadius: 100, cursor: "pointer", fontFamily: "'Jost',sans-serif", fontSize: 14, whiteSpace: "nowrap", letterSpacing: 0.3, transition: "all .2s" },
   offlineBar: { background: "#fff7e6", color: "#8a6d3b", fontSize: 12.5, padding: "8px 24px", textAlign: "center" },
   main: { maxWidth: 760, margin: "0 auto", padding: "40px 24px 100px" },
@@ -922,6 +971,13 @@ const styles = {
   pill: { border: `1px solid ${NAVY}30`, background: "transparent", color: NAVY, padding: "6px 14px", borderRadius: 100, cursor: "pointer", fontFamily: "'Jost',sans-serif", fontSize: 13 },
   galleryGrid: { marginTop: 24, display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(110px,1fr))", gap: 8 },
   thumb: { width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 10, background: `${NAVY}08` },
+  playBadge: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 28, textShadow: "0 2px 8px rgba(0,0,0,0.6)", pointerEvents: "none" },
+  lightbox: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 16 },
+  lbClose: { position: "absolute", top: 16, right: 16, background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: 100, width: 40, height: 40, fontSize: 18, cursor: "pointer", zIndex: 210 },
+  lbContent: { maxWidth: "100%", maxHeight: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 },
+  lbMedia: { maxWidth: "100%", maxHeight: "80vh", borderRadius: 10, objectFit: "contain" },
+  lbActions: { display: "flex", gap: 10, alignItems: "center" },
+  lbDelete: { background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.4)", padding: "11px 22px", borderRadius: 100, cursor: "pointer", fontFamily: "'Jost',sans-serif", fontSize: 14 },
   delThumb: { position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: 100, width: 26, height: 26, cursor: "pointer" },
   dlThumb: { position: "absolute", bottom: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: 100, width: 26, height: 26, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", fontSize: 16, fontWeight: 600 },
   accomCard: { border: `1px solid ${NAVY}20`, borderRadius: 16, overflow: "hidden" },
