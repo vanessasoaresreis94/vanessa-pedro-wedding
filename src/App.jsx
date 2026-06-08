@@ -471,13 +471,39 @@ function Accommodation({ tr, lang, c, data }) {
   return (
     <section>
       <h2 style={styles.h2Big}>{c.accommodationTitle}</h2>
-      <p style={{ ...styles.body, marginTop: 14 }}>{c.accommodationBody}</p>
-      <div style={{ marginTop: 24, display: "grid", gap: 12 }}>
-        {data.accommodation.map((a) => (
-          <Card key={a.id}>
-            <p style={styles.body}>{a[lang]}</p>
-          </Card>
+      {/* texto introdutório em parágrafos separados */}
+      <div style={{ marginTop: 14 }}>
+        {(c.accommodationBody || "").split("\n").filter((p) => p.trim()).map((par, i) => (
+          <p key={i} style={{ ...styles.body, marginBottom: 12 }}>{par}</p>
         ))}
+      </div>
+      <div style={{ marginTop: 24, display: "grid", gap: 18 }}>
+        {data.accommodation.map((a) => {
+          const title = a[lang + "Title"] || a.title || "";
+          const text = a[lang] || "";
+          return (
+            <div key={a.id} style={styles.accomCard}>
+              {a.photo && (
+                <img src={a.photo} alt="" style={styles.accomImg} loading="lazy" />
+              )}
+              <div style={{ padding: a.photo ? "18px 22px" : "22px" }}>
+                {title && (
+                  <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 600, marginBottom: 8 }}>
+                    {title}
+                  </h3>
+                )}
+                {text.split("\n").filter((p) => p.trim()).map((par, i) => (
+                  <p key={i} style={{ ...styles.body, marginBottom: 8 }}>{par}</p>
+                ))}
+                {a.maps && (
+                  <a href={a.maps} target="_blank" rel="noreferrer" style={{ ...styles.linkBtn, marginTop: 10 }}>
+                    {tr.openMaps} →
+                  </a>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -613,11 +639,7 @@ function AdminEditor({ tr, content, setContent, data, setData, onLogout }) {
           onDelete={(id) => delItem("alerts", id)} />
       )}
       {tab === "accommodation" && (
-        <ListEditor items={data.accommodation} tr={tr}
-          fields={[["pt", "PT"], ["en", "EN"]]}
-          onChange={(id, f, v) => updateList("accommodation", id, f, v)}
-          onAdd={() => addItem("accommodation", { pt: "", en: "" })}
-          onDelete={(id) => delItem("accommodation", id)} />
+        <AccommodationEditor tr={tr} data={data} setData={setData} />
       )}
       {tab === "photo" && (
         <div>
@@ -632,6 +654,83 @@ function AdminEditor({ tr, content, setContent, data, setData, onLogout }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function AccommodationEditor({ tr, data, setData }) {
+  const [uploading, setUploading] = useState(null);
+  const setList = (fn) => setData((d) => ({ ...d, accommodation: fn(d.accommodation || []) }));
+  const upd = (id, field, val) =>
+    setList((items) => items.map((it) => (it.id === id ? { ...it, [field]: val } : it)));
+  const add = () =>
+    setList((items) => [
+      ...items,
+      { id: uid(), ptTitle: "", enTitle: "", pt: "", en: "", maps: "", photo: "" },
+    ]);
+  const del = (id) => setList((items) => items.filter((it) => it.id !== id));
+
+  const onPhoto = async (id, file) => {
+    if (!file) return;
+    setUploading(id);
+    try {
+      if (hasCloudinary) {
+        const res = await uploadToCloudinary(file);
+        upd(id, "photo", res.url);
+      } else {
+        const r = new FileReader();
+        r.onload = () => upd(id, "photo", r.result);
+        r.readAsDataURL(file);
+      }
+    } catch (e) {
+      alert("Erro no upload: " + e.message);
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <p style={{ ...styles.fieldLabel, marginBottom: 0 }}>
+        Dica: para parágrafos separados, carrega Enter entre eles no campo de texto.
+      </p>
+      {(data.accommodation || []).map((a) => (
+        <div key={a.id} style={{ border: `1px solid ${NAVY}20`, borderRadius: 12, padding: 14 }}>
+          <p style={styles.fieldLabel}>Título (PT)</p>
+          <input style={styles.input} value={a.ptTitle || ""}
+            onChange={(e) => upd(a.id, "ptTitle", e.target.value)} placeholder="Ex: Hotel Mar Azul" />
+          <p style={styles.fieldLabel}>Título (EN)</p>
+          <input style={styles.input} value={a.enTitle || ""}
+            onChange={(e) => upd(a.id, "enTitle", e.target.value)} placeholder="Ex: Mar Azul Hotel" />
+          <p style={styles.fieldLabel}>Texto (PT)</p>
+          <textarea style={{ ...styles.input, minHeight: 80 }} value={a.pt || ""}
+            onChange={(e) => upd(a.id, "pt", e.target.value)} placeholder="Descrição, morada, contacto…" />
+          <p style={styles.fieldLabel}>Texto (EN)</p>
+          <textarea style={{ ...styles.input, minHeight: 80 }} value={a.en || ""}
+            onChange={(e) => upd(a.id, "en", e.target.value)} placeholder="Description, address, contact…" />
+          <p style={styles.fieldLabel}>Link do mapa / localização</p>
+          <input style={styles.input} value={a.maps || ""}
+            onChange={(e) => upd(a.id, "maps", e.target.value)} placeholder="https://maps.google.com/..." />
+          <p style={styles.fieldLabel}>Foto</p>
+          {a.photo && (
+            <img src={a.photo} alt="" style={{ width: "100%", borderRadius: 10, marginBottom: 8 }} />
+          )}
+          <label style={{ ...styles.linkBtn, display: "inline-block", cursor: "pointer" }}>
+            {uploading === a.id ? tr.uploading : (a.photo ? "Mudar foto" : "Carregar foto")}
+            <input type="file" accept="image/*" style={{ display: "none" }}
+              onChange={(e) => onPhoto(a.id, e.target.files[0])} />
+          </label>
+          {a.photo && (
+            <button onClick={() => upd(a.id, "photo", "")} style={{ ...styles.pill, marginLeft: 8 }}>
+              Remover foto
+            </button>
+          )}
+          <div style={{ marginTop: 12 }}>
+            <button onClick={() => del(a.id)} style={styles.pill}>{tr.delete}</button>
+          </div>
+        </div>
+      ))}
+      <button onClick={add} style={styles.linkBtn}>+ {tr.add} alojamento</button>
     </div>
   );
 }
@@ -759,6 +858,8 @@ const styles = {
   thumb: { width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 10, background: `${NAVY}08` },
   delThumb: { position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: 100, width: 26, height: 26, cursor: "pointer" },
   dlThumb: { position: "absolute", bottom: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: 100, width: 26, height: 26, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", fontSize: 16, fontWeight: 600 },
+  accomCard: { border: `1px solid ${NAVY}20`, borderRadius: 16, overflow: "hidden" },
+  accomImg: { width: "100%", maxHeight: 260, objectFit: "cover", display: "block" },
   progressWrap: { position: "relative", height: 26, background: `${NAVY}10`, borderRadius: 100, overflow: "hidden" },
   progressBar: { position: "absolute", left: 0, top: 0, bottom: 0, background: NAVY, transition: "width .2s" },
   progressTxt: { position: "relative", fontSize: 12, color: "#fff", lineHeight: "26px", paddingLeft: 12, mixBlendMode: "difference" },
