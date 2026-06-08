@@ -290,8 +290,12 @@ export const DEFAULT_DATA = {
   accommodation: [
     {
       id: 1,
-      pt: "Hotel sugerido — adicionar nome e contacto",
-      en: "Suggested hotel — add name and contact",
+      ptTitle: "Hotel sugerido",
+      enTitle: "Suggested hotel",
+      pt: "Adicionar nome, morada e contacto.\nPodes escrever vários parágrafos — cada linha fica separada.",
+      en: "Add name, address and contact.\nYou can write several paragraphs — each line stays separate.",
+      maps: "",
+      photo: "",
     },
   ],
   heroPhoto: "", // dataURL definido no modo admin
