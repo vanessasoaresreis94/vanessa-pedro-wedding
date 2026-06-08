@@ -940,7 +940,7 @@ function FontStyles() {
 }
 
 const styles = {
-  app: { minHeight: "100vh", background: "#fff", color: NAVY, fontFamily: "'Jost',sans-serif", overflowX: "hidden" },
+  app: { minHeight: "100vh", background: "#fff", color: NAVY, fontFamily: "'Jost',sans-serif" },
   stickyTop: { position: "sticky", top: 0, zIndex: 50, background: "#fff" },
   header: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: `1px solid ${NAVY}15`, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(10px)" },
   nav: { display: "flex", gap: 6, overflowX: "auto", padding: "14px 24px", borderBottom: `1px solid ${NAVY}10`, background: "#fff" },
