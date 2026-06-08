@@ -54,6 +54,9 @@ const T = {
     saved: "Guardado", saving: "A guardar…", offline: "Sem ligação à base de dados — alterações apenas neste dispositivo.",
     shareGallery: "Partilhar galeria (QR)", guests: "convidados",
     download: "Descarregar",
+    tablesLocked: "O plano de mesas estará disponível no dia do casamento, 14 de agosto.",
+    searchGuest: "Pesquisar o teu nome…",
+    noGuestFound: "Nenhum convidado encontrado com esse nome.",
   },
   en: {
     nav: ["Home", "Schedule", "Map", "Tables", "Alerts", "Gallery", "Stay"],
@@ -69,6 +72,9 @@ const T = {
     saved: "Saved", saving: "Saving…", offline: "No database connection — changes stay on this device only.",
     shareGallery: "Share gallery (QR)", guests: "guests",
     download: "Download",
+    tablesLocked: "The seating plan will be available on the wedding day, August 14th.",
+    searchGuest: "Search your name…",
+    noGuestFound: "No guest found with that name.",
   },
 };
 
@@ -281,11 +287,46 @@ function MapSec({ tr, lang, data }) {
 }
 
 function Tables({ tr, lang, data }) {
+  const [query, setQuery] = useState("");
+  // Mesas ficam visíveis a partir de 14/08/2026, ou se o admin tiver desbloqueado.
+  const unlockDate = new Date("2026-08-14T00:00:00+01:00");
+  const isUnlocked = data.tablesUnlocked === true || new Date() >= unlockDate;
+
+  if (!isUnlocked) {
+    return (
+      <section>
+        <h2 style={styles.h2Big}>{tr.tables}</h2>
+        <div style={styles.tablesLocked}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
+          <p style={{ ...styles.body, fontSize: 17 }}>{tr.tablesLocked}</p>
+        </div>
+      </section>
+    );
+  }
+
+  const q = query.trim().toLowerCase();
+  // Mesas a mostrar: se houver pesquisa, só as que têm um convidado correspondente.
+  const visibleTables = q
+    ? data.tables.filter((t) => t.guests.some((g) => g.name.toLowerCase().includes(q)))
+    : data.tables;
+
   return (
     <section>
       <h2 style={styles.h2Big}>{tr.tables}</h2>
-      <div style={{ marginTop: 24, display: "grid", gap: 18 }}>
-        {data.tables.map((t) => (
+
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={tr.searchGuest}
+        style={styles.tableSearch}
+      />
+      {q && visibleTables.length === 0 && (
+        <p style={{ ...styles.body, marginTop: 16 }}>{tr.noGuestFound}</p>
+      )}
+
+      <div style={{ marginTop: 20, display: "grid", gap: 18 }}>
+        {visibleTables.map((t) => (
           <div key={t.id} style={styles.tableCard}>
             <div style={styles.tableHead}>
               <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 600 }}>
@@ -296,21 +337,32 @@ function Tables({ tr, lang, data }) {
               </span>
             </div>
             <div style={{ display: "grid", gap: 8 }}>
-              {t.guests.map((g, i) => (
-                <div key={g.id} style={styles.guestRow}>
-                  <span style={{ color: NAVY_SOFT, minWidth: 22, fontSize: 13 }}>{i + 1}.</span>
-                  <span>{g.name}</span>
-                  {g.age && (
-                    <span style={styles.ageTag}>
-                      {g.age}{" "}
-                      {Number(g.age) === 1
-                        ? lang === "pt" ? "ano" : "yr"
-                        : lang === "pt" ? "anos" : "yrs"}
-                    </span>
-                  )}
-                  {g.note && <span style={styles.noteTag}>⚠ {g.note}</span>}
-                </div>
-              ))}
+              {t.guests.map((g, i) => {
+                const match = q && g.name.toLowerCase().includes(q);
+                return (
+                  <div
+                    key={g.id}
+                    style={{
+                      ...styles.guestRow,
+                      ...(match
+                        ? { background: `${NAVY}10`, borderRadius: 8, padding: "6px 10px", fontWeight: 600 }
+                        : {}),
+                    }}
+                  >
+                    <span style={{ color: NAVY_SOFT, minWidth: 22, fontSize: 13 }}>{i + 1}.</span>
+                    <span>{g.name}</span>
+                    {g.age && (
+                      <span style={styles.ageTag}>
+                        {g.age}{" "}
+                        {Number(g.age) === 1
+                          ? lang === "pt" ? "ano" : "yr"
+                          : lang === "pt" ? "anos" : "yrs"}
+                      </span>
+                    )}
+                    {g.note && <span style={styles.noteTag}>⚠ {g.note}</span>}
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))}
@@ -752,6 +804,20 @@ function TablesEditor({ tr, data, setData }) {
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
+      <div style={{ border: `1px solid ${NAVY}20`, borderRadius: 12, padding: 14, background: `${NAVY}05` }}>
+        <p style={styles.fieldLabel}>Visibilidade das mesas para os convidados</p>
+        <p style={{ ...styles.body, fontSize: 14, marginBottom: 10 }}>
+          Por defeito, as mesas só ficam visíveis a 14 de agosto. Podes desbloquear já aqui.
+        </p>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 15 }}>
+          <input
+            type="checkbox"
+            checked={data.tablesUnlocked === true}
+            onChange={(e) => setData((d) => ({ ...d, tablesUnlocked: e.target.checked }))}
+          />
+          Mostrar as mesas já agora (desbloqueado)
+        </label>
+      </div>
       {data.tables.map((t) => (
         <div key={t.id} style={{ border: `1px solid ${NAVY}20`, borderRadius: 12 }}>
           <div style={styles.tableEditHead} onClick={() => setOpen(open === t.id ? null : t.id)}>
@@ -860,6 +926,8 @@ const styles = {
   dlThumb: { position: "absolute", bottom: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: 100, width: 26, height: 26, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", fontSize: 16, fontWeight: 600 },
   accomCard: { border: `1px solid ${NAVY}20`, borderRadius: 16, overflow: "hidden" },
   accomImg: { width: "100%", maxHeight: 260, objectFit: "cover", display: "block" },
+  tableSearch: { width: "100%", border: `1px solid ${NAVY}25`, borderRadius: 100, padding: "12px 20px", fontSize: 15, marginTop: 18, color: NAVY, background: "#fff" },
+  tablesLocked: { textAlign: "center", padding: "50px 24px", marginTop: 24, border: `1px solid ${NAVY}15`, borderRadius: 16, background: `${NAVY}05` },
   progressWrap: { position: "relative", height: 26, background: `${NAVY}10`, borderRadius: 100, overflow: "hidden" },
   progressBar: { position: "absolute", left: 0, top: 0, bottom: 0, background: NAVY, transition: "width .2s" },
   progressTxt: { position: "relative", fontSize: 12, color: "#fff", lineHeight: "26px", paddingLeft: 12, mixBlendMode: "difference" },
