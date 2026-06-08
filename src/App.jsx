@@ -53,6 +53,7 @@ const T = {
     logout: "Sair", translate: "English", uploadPhoto: "Carregar foto principal",
     saved: "Guardado", saving: "A guardar…", offline: "Sem ligação à base de dados — alterações apenas neste dispositivo.",
     shareGallery: "Partilhar galeria (QR)", guests: "convidados",
+    download: "Descarregar",
   },
   en: {
     nav: ["Home", "Schedule", "Map", "Tables", "Alerts", "Gallery", "Stay"],
@@ -67,6 +68,7 @@ const T = {
     logout: "Log out", translate: "Português", uploadPhoto: "Upload main photo",
     saved: "Saved", saving: "Saving…", offline: "No database connection — changes stay on this device only.",
     shareGallery: "Share gallery (QR)", guests: "guests",
+    download: "Download",
   },
 };
 
@@ -436,6 +438,15 @@ function Gallery({ tr, gallery, setGallery, admin }) {
             ) : (
               <img src={m.url} alt="" style={styles.thumb} loading="lazy" />
             )}
+            <a
+              href={downloadUrl(m.url)}
+              download
+              style={styles.dlThumb}
+              title={tr.download}
+              onClick={(e) => e.stopPropagation()}
+            >
+              ↓
+            </a>
             {admin && (
               <button onClick={() => remove(m.id)} style={styles.delThumb}>
                 ✕
@@ -446,6 +457,14 @@ function Gallery({ tr, gallery, setGallery, admin }) {
       </div>
     </section>
   );
+}
+
+// Constrói um URL do Cloudinary que força o download (fl_attachment).
+function downloadUrl(url) {
+  if (url && url.includes("/upload/")) {
+    return url.replace("/upload/", "/upload/fl_attachment/");
+  }
+  return url;
 }
 
 function Accommodation({ tr, lang, c, data }) {
@@ -739,6 +758,7 @@ const styles = {
   galleryGrid: { marginTop: 24, display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(110px,1fr))", gap: 8 },
   thumb: { width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 10, background: `${NAVY}08` },
   delThumb: { position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: 100, width: 26, height: 26, cursor: "pointer" },
+  dlThumb: { position: "absolute", bottom: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: 100, width: 26, height: 26, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", fontSize: 16, fontWeight: 600 },
   progressWrap: { position: "relative", height: 26, background: `${NAVY}10`, borderRadius: 100, overflow: "hidden" },
   progressBar: { position: "absolute", left: 0, top: 0, bottom: 0, background: NAVY, transition: "width .2s" },
   progressTxt: { position: "relative", fontSize: 12, color: "#fff", lineHeight: "26px", paddingLeft: 12, mixBlendMode: "difference" },
