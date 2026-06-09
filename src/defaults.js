@@ -299,4 +299,13 @@ export const DEFAULT_DATA = {
     },
   ],
   heroPhoto: "", // dataURL definido no modo admin
+  wishlist: {
+    ptTitle: "Lista de Desejos",
+    enTitle: "Wishlist",
+    pt: "A vossa presença é o nosso maior presente. Mas se quiserem contribuir para a nossa nova etapa, deixamos aqui os nossos dados com muito carinho.",
+    en: "Your presence is our greatest gift. But if you'd like to contribute to our new chapter, here are our details with love.",
+    holder: "Vanessa & Pedro",
+    iban: "",
+    photo: "",
+  },
 };

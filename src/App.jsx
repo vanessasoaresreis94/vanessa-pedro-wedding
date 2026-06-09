@@ -41,7 +41,7 @@ function getDiff(target) {
 /* ---------- i18n ---------- */
 const T = {
   pt: {
-    nav: ["Início", "Programa", "Mapa", "Mesas", "Novidades", "Galeria", "Alojamento"],
+    nav: ["Início", "Programa", "Mapa", "Mesas", "Novidades", "Galeria", "Alojamento", "Lista de Desejos"],
     date: "14 de Agosto de 2026",
     days: "Dias", hours: "Horas", minutes: "Minutos", seconds: "Segundos",
     schedule: "Programa do dia", map: "Indicações", openMaps: "Abrir no mapa",
@@ -57,9 +57,14 @@ const T = {
     tablesLocked: "O plano de mesas estará disponível no dia do casamento, 14 de agosto.",
     searchGuest: "Pesquisar o teu nome…",
     noGuestFound: "Nenhum convidado encontrado com esse nome.",
+    wishlist: "Lista de Desejos",
+    iban: "IBAN",
+    accountHolder: "Titular",
+    copy: "Copiar",
+    copied: "Copiado!",
   },
   en: {
-    nav: ["Home", "Schedule", "Map", "Tables", "Updates", "Gallery", "Stay"],
+    nav: ["Home", "Schedule", "Map", "Tables", "Updates", "Gallery", "Stay", "Wishlist"],
     date: "August 14th, 2026",
     days: "Days", hours: "Hours", minutes: "Minutes", seconds: "Seconds",
     schedule: "Day schedule", map: "Directions", openMaps: "Open in maps",
@@ -75,6 +80,11 @@ const T = {
     tablesLocked: "The seating plan will be available on the wedding day, August 14th.",
     searchGuest: "Search your name…",
     noGuestFound: "No guest found with that name.",
+    wishlist: "Wishlist",
+    iban: "IBAN",
+    accountHolder: "Account holder",
+    copy: "Copy",
+    copied: "Copied!",
   },
 };
 
@@ -185,6 +195,7 @@ export default function App() {
           <Gallery tr={tr} gallery={gallery} setGallery={setGallery} admin={admin} />
         )}
         {section === 6 && <Accommodation tr={tr} lang={lang} c={c} data={data} />}
+        {section === 7 && <Wishlist tr={tr} lang={lang} c={c} data={data} />}
       </main>
 
       {showAdmin && (
@@ -611,6 +622,60 @@ function Accommodation({ tr, lang, c, data }) {
 
 /* ===================== Admin ===================== */
 
+function Wishlist({ tr, lang, c, data }) {
+  const [copied, setCopied] = useState(false);
+  const w = data.wishlist || {};
+  const title = w[lang + "Title"] || (lang === "pt" ? "Lista de Desejos" : "Wishlist");
+  const text = w[lang] || "";
+
+  const copyIban = () => {
+    const iban = (w.iban || "").replace(/\s/g, "");
+    try {
+      navigator.clipboard.writeText(iban);
+    } catch {}
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <section>
+      <h2 style={styles.h2Big}>{tr.wishlist}</h2>
+
+      {w.photo && (
+        <img src={w.photo} alt="" style={{ width: "100%", borderRadius: 16, marginTop: 18 }} />
+      )}
+
+      <div style={{ marginTop: 18 }}>
+        {text.split("\n").filter((p) => p.trim()).map((par, i) => (
+          <p key={i} style={{ ...styles.body, marginBottom: 12 }}>{par}</p>
+        ))}
+      </div>
+
+      {(w.iban || w.holder) && (
+        <div style={styles.ibanCard}>
+          {w.holder && (
+            <div style={{ marginBottom: 10 }}>
+              <span style={styles.fieldLabel}>{tr.accountHolder}</span>
+              <div style={{ fontSize: 17 }}>{w.holder}</div>
+            </div>
+          )}
+          {w.iban && (
+            <div>
+              <span style={styles.fieldLabel}>{tr.iban}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 4 }}>
+                <span style={{ fontSize: 17, letterSpacing: 0.5, fontFamily: "monospace" }}>{w.iban}</span>
+                <button onClick={copyIban} style={styles.pill}>
+                  {copied ? tr.copied : tr.copy}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function AdminPanel({ onClose, admin, setAdmin, tr, content, setContent, data, setData }) {
   const [pw, setPw] = useState("");
   const [err, setErr] = useState(false);
@@ -680,7 +745,7 @@ function AdminEditor({ tr, content, setContent, data, setData, onLogout }) {
 
   const tabs = [
     ["text", "Textos"], ["schedule", "Programa"], ["locations", "Mapa"],
-    ["tables", "Mesas"], ["alerts", "Novidades"], ["accommodation", "Alojamento"], ["photo", "Foto"],
+    ["tables", "Mesas"], ["alerts", "Novidades"], ["accommodation", "Alojamento"], ["wishlist", "Lista Desejos"], ["photo", "Foto"],
   ];
 
   return (
@@ -741,6 +806,9 @@ function AdminEditor({ tr, content, setContent, data, setData, onLogout }) {
       {tab === "accommodation" && (
         <AccommodationEditor tr={tr} data={data} setData={setData} />
       )}
+      {tab === "wishlist" && (
+        <WishlistEditor tr={tr} data={data} setData={setData} />
+      )}
       {tab === "photo" && (
         <div>
           <p style={styles.fieldLabel}>{tr.uploadPhoto}</p>
@@ -754,6 +822,69 @@ function AdminEditor({ tr, content, setContent, data, setData, onLogout }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function WishlistEditor({ tr, data, setData }) {
+  const [uploading, setUploading] = useState(false);
+  const w = data.wishlist || {};
+  const upd = (field, val) =>
+    setData((d) => ({ ...d, wishlist: { ...(d.wishlist || {}), [field]: val } }));
+
+  const onPhoto = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      if (hasCloudinary) {
+        const res = await uploadToCloudinary(file);
+        upd("photo", res.url);
+      } else {
+        const r = new FileReader();
+        r.onload = () => upd("photo", r.result);
+        r.readAsDataURL(file);
+      }
+    } catch (e) {
+      alert("Erro no upload: " + e.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      <p style={styles.fieldLabel}>Título (PT)</p>
+      <input style={styles.input} value={w.ptTitle || ""}
+        onChange={(e) => upd("ptTitle", e.target.value)} placeholder="Lista de Desejos" />
+      <p style={styles.fieldLabel}>Título (EN)</p>
+      <input style={styles.input} value={w.enTitle || ""}
+        onChange={(e) => upd("enTitle", e.target.value)} placeholder="Wishlist" />
+      <p style={styles.fieldLabel}>Texto (PT)</p>
+      <textarea style={{ ...styles.input, minHeight: 90 }} value={w.pt || ""}
+        onChange={(e) => upd("pt", e.target.value)} placeholder="Mensagem para os convidados…" />
+      <p style={styles.fieldLabel}>Texto (EN)</p>
+      <textarea style={{ ...styles.input, minHeight: 90 }} value={w.en || ""}
+        onChange={(e) => upd("en", e.target.value)} placeholder="Message for guests…" />
+      <p style={styles.fieldLabel}>Titular da conta</p>
+      <input style={styles.input} value={w.holder || ""}
+        onChange={(e) => upd("holder", e.target.value)} placeholder="Ex: Vanessa & Pedro" />
+      <p style={styles.fieldLabel}>IBAN</p>
+      <input style={styles.input} value={w.iban || ""}
+        onChange={(e) => upd("iban", e.target.value)} placeholder="PT50 0000 0000 0000 0000 0000 0" />
+      <p style={styles.fieldLabel}>Imagem</p>
+      {w.photo && <img src={w.photo} alt="" style={{ width: "100%", borderRadius: 10, marginBottom: 8 }} />}
+      <div>
+        <label style={{ ...styles.linkBtn, display: "inline-block", cursor: "pointer" }}>
+          {uploading ? tr.uploading : (w.photo ? "Mudar imagem" : "Carregar imagem")}
+          <input type="file" accept="image/*" style={{ display: "none" }}
+            onChange={(e) => onPhoto(e.target.files[0])} />
+        </label>
+        {w.photo && (
+          <button onClick={() => upd("photo", "")} style={{ ...styles.pill, marginLeft: 8 }}>
+            Remover imagem
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -982,6 +1113,7 @@ const styles = {
   dlThumb: { position: "absolute", bottom: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: 100, width: 26, height: 26, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", fontSize: 16, fontWeight: 600 },
   accomCard: { border: `1px solid ${NAVY}20`, borderRadius: 16, overflow: "hidden" },
   accomImg: { width: "100%", maxHeight: 260, objectFit: "cover", display: "block" },
+  ibanCard: { marginTop: 24, border: `1px solid ${NAVY}20`, borderRadius: 16, padding: "22px 24px", background: `${NAVY}05` },
   tableSearch: { width: "100%", border: `1px solid ${NAVY}25`, borderRadius: 100, padding: "12px 20px", fontSize: 15, marginTop: 18, color: NAVY, background: "#fff" },
   tablesLocked: { textAlign: "center", padding: "50px 24px", marginTop: 24, border: `1px solid ${NAVY}15`, borderRadius: 16, background: `${NAVY}05` },
   progressWrap: { position: "relative", height: 26, background: `${NAVY}10`, borderRadius: 100, overflow: "hidden" },
