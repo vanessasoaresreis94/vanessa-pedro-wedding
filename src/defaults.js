@@ -308,4 +308,15 @@ export const DEFAULT_DATA = {
     iban: "",
     photo: "",
   },
+  prep: {
+    pt: "Detalhes da preparação do dia 14 de agosto.",
+    en: "Details for getting ready on August 14th.",
+    ptName: "",
+    enName: "",
+    maps: "",
+    photo: "",
+    schedule: [
+      { id: 1, time: "15h00", name: "", note: "" },
+    ],
+  },
 };

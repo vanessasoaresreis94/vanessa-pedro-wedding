@@ -41,7 +41,7 @@ function getDiff(target) {
 /* ---------- i18n ---------- */
 const T = {
   pt: {
-    nav: ["Início", "Programa", "Mapa", "Mesas", "Novidades", "Galeria", "Alojamento", "Lista de Desejos"],
+    nav: ["Início", "Programa", "Mapa", "Mesas", "Novidades", "Galeria", "Alojamento", "Lista de Desejos", "Preparações"],
     date: "14 de Agosto de 2026",
     days: "Dias", hours: "Horas", minutes: "Minutos", seconds: "Segundos",
     schedule: "Programa do dia", map: "Indicações", openMaps: "Abrir no mapa",
@@ -62,9 +62,11 @@ const T = {
     accountHolder: "Titular",
     copy: "Copiar",
     copied: "Copiado!",
+    prep: "Preparações do dia 14",
+    prepSchedule: "Horários da preparação",
   },
   en: {
-    nav: ["Home", "Schedule", "Map", "Tables", "Updates", "Gallery", "Stay", "Wishlist"],
+    nav: ["Home", "Schedule", "Map", "Tables", "Updates", "Gallery", "Stay", "Wishlist", "Getting Ready"],
     date: "August 14th, 2026",
     days: "Days", hours: "Hours", minutes: "Minutes", seconds: "Seconds",
     schedule: "Day schedule", map: "Directions", openMaps: "Open in maps",
@@ -85,6 +87,8 @@ const T = {
     accountHolder: "Account holder",
     copy: "Copy",
     copied: "Copied!",
+    prep: "Getting ready — August 14th",
+    prepSchedule: "Getting ready schedule",
   },
 };
 
@@ -196,6 +200,7 @@ export default function App() {
         )}
         {section === 6 && <Accommodation tr={tr} lang={lang} c={c} data={data} />}
         {section === 7 && <Wishlist tr={tr} lang={lang} c={c} data={data} />}
+        {section === 8 && <Prep tr={tr} lang={lang} data={data} />}
       </main>
 
       {showAdmin && (
@@ -676,6 +681,64 @@ function Wishlist({ tr, lang, c, data }) {
   );
 }
 
+function Prep({ tr, lang, data }) {
+  const p = data.prep || {};
+  const name = p[lang + "Name"] || p.name || "";
+  const intro = p[lang] || "";
+  const schedule = p.schedule || [];
+
+  return (
+    <section>
+      <h2 style={styles.h2Big}>{tr.prep}</h2>
+
+      {intro && (
+        <div style={{ marginTop: 14 }}>
+          {intro.split("\n").filter((x) => x.trim()).map((par, i) => (
+            <p key={i} style={{ ...styles.body, marginBottom: 12 }}>{par}</p>
+          ))}
+        </div>
+      )}
+
+      {/* Alojamento da preparação */}
+      {(name || p.maps || p.photo) && (
+        <div style={{ ...styles.accomCard, marginTop: 20 }}>
+          {p.photo && <img src={p.photo} alt="" style={styles.accomImg} loading="lazy" />}
+          <div style={{ padding: p.photo ? "18px 22px" : "22px" }}>
+            {name && (
+              <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 600, marginBottom: 8 }}>
+                {name}
+              </h3>
+            )}
+            {p.maps && (
+              <a href={p.maps} target="_blank" rel="noreferrer" style={styles.linkBtn}>
+                {tr.openMaps} →
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Horários */}
+      {schedule.length > 0 && (
+        <>
+          <h3 style={{ ...styles.h2, marginTop: 30 }}>{tr.prepSchedule}</h3>
+          <div style={{ marginTop: 8 }}>
+            {schedule.map((s) => (
+              <div key={s.id} style={styles.prepRow}>
+                <div style={styles.prepTime}>{s.time}</div>
+                <div>
+                  <div style={{ fontSize: 16 }}>{s.name}</div>
+                  {s.note && <div style={{ ...styles.body, fontSize: 14 }}>{s.note}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function AdminPanel({ onClose, admin, setAdmin, tr, content, setContent, data, setData }) {
   const [pw, setPw] = useState("");
   const [err, setErr] = useState(false);
@@ -745,7 +808,7 @@ function AdminEditor({ tr, content, setContent, data, setData, onLogout }) {
 
   const tabs = [
     ["text", "Textos"], ["schedule", "Programa"], ["locations", "Mapa"],
-    ["tables", "Mesas"], ["alerts", "Novidades"], ["accommodation", "Alojamento"], ["wishlist", "Lista Desejos"], ["photo", "Foto"],
+    ["tables", "Mesas"], ["alerts", "Novidades"], ["accommodation", "Alojamento"], ["wishlist", "Lista Desejos"], ["prep", "Preparações"], ["photo", "Foto"],
   ];
 
   return (
@@ -809,6 +872,9 @@ function AdminEditor({ tr, content, setContent, data, setData, onLogout }) {
       {tab === "wishlist" && (
         <WishlistEditor tr={tr} data={data} setData={setData} />
       )}
+      {tab === "prep" && (
+        <PrepEditor tr={tr} data={data} setData={setData} />
+      )}
       {tab === "photo" && (
         <div>
           <p style={styles.fieldLabel}>{tr.uploadPhoto}</p>
@@ -822,6 +888,93 @@ function AdminEditor({ tr, content, setContent, data, setData, onLogout }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function PrepEditor({ tr, data, setData }) {
+  const [uploading, setUploading] = useState(false);
+  const p = data.prep || {};
+  const upd = (field, val) =>
+    setData((d) => ({ ...d, prep: { ...(d.prep || {}), [field]: val } }));
+
+  const schedule = p.schedule || [];
+  const setSchedule = (fn) =>
+    setData((d) => ({ ...d, prep: { ...(d.prep || {}), schedule: fn((d.prep || {}).schedule || []) } }));
+  const updSlot = (id, field, val) =>
+    setSchedule((arr) => arr.map((s) => (s.id === id ? { ...s, [field]: val } : s)));
+  const addSlot = () =>
+    setSchedule((arr) => [...arr, { id: uid(), time: "00h00", name: "", note: "" }]);
+  const delSlot = (id) => setSchedule((arr) => arr.filter((s) => s.id !== id));
+
+  const onPhoto = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      if (hasCloudinary) {
+        const res = await uploadToCloudinary(file);
+        upd("photo", res.url);
+      } else {
+        const r = new FileReader();
+        r.onload = () => upd("photo", r.result);
+        r.readAsDataURL(file);
+      }
+    } catch (e) {
+      alert("Erro no upload: " + e.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      <p style={styles.fieldLabel}>Texto introdutório (PT)</p>
+      <textarea style={{ ...styles.input, minHeight: 70 }} value={p.pt || ""}
+        onChange={(e) => upd("pt", e.target.value)} placeholder="Mensagem opcional…" />
+      <p style={styles.fieldLabel}>Texto introdutório (EN)</p>
+      <textarea style={{ ...styles.input, minHeight: 70 }} value={p.en || ""}
+        onChange={(e) => upd("en", e.target.value)} placeholder="Optional message…" />
+
+      <div style={{ border: `1px solid ${NAVY}20`, borderRadius: 12, padding: 14 }}>
+        <p style={{ ...styles.fieldLabel, fontWeight: 600 }}>Alojamento da preparação</p>
+        <p style={styles.fieldLabel}>Nome (PT)</p>
+        <input style={styles.input} value={p.ptName || ""}
+          onChange={(e) => upd("ptName", e.target.value)} placeholder="Ex: Casa da Preparação" />
+        <p style={styles.fieldLabel}>Nome (EN)</p>
+        <input style={styles.input} value={p.enName || ""}
+          onChange={(e) => upd("enName", e.target.value)} placeholder="Ex: Getting Ready House" />
+        <p style={styles.fieldLabel}>Link do mapa</p>
+        <input style={styles.input} value={p.maps || ""}
+          onChange={(e) => upd("maps", e.target.value)} placeholder="https://maps.google.com/..." />
+        <p style={styles.fieldLabel}>Foto</p>
+        {p.photo && <img src={p.photo} alt="" style={{ width: "100%", borderRadius: 10, marginBottom: 8 }} />}
+        <label style={{ ...styles.linkBtn, display: "inline-block", cursor: "pointer" }}>
+          {uploading ? tr.uploading : (p.photo ? "Mudar foto" : "Carregar foto")}
+          <input type="file" accept="image/*" style={{ display: "none" }}
+            onChange={(e) => onPhoto(e.target.files[0])} />
+        </label>
+        {p.photo && (
+          <button onClick={() => upd("photo", "")} style={{ ...styles.pill, marginLeft: 8 }}>
+            Remover foto
+          </button>
+        )}
+      </div>
+
+      <p style={{ ...styles.fieldLabel, fontWeight: 600, marginTop: 6 }}>Horários da preparação</p>
+      {schedule.map((s) => (
+        <div key={s.id} style={{ border: `1px solid ${NAVY}20`, borderRadius: 12, padding: 12, display: "grid", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "90px 1fr auto", gap: 6, alignItems: "center" }}>
+            <input style={{ ...styles.input, marginBottom: 0, textAlign: "center" }} value={s.time}
+              onChange={(e) => updSlot(s.id, "time", e.target.value)} placeholder="15h00" />
+            <input style={{ ...styles.input, marginBottom: 0 }} value={s.name}
+              onChange={(e) => updSlot(s.id, "name", e.target.value)} placeholder="Nome" />
+            <button onClick={() => delSlot(s.id)} style={{ ...styles.pill, padding: "6px 10px" }}>✕</button>
+          </div>
+          <input style={{ ...styles.input, marginBottom: 0 }} value={s.note || ""}
+            onChange={(e) => updSlot(s.id, "note", e.target.value)} placeholder="Nota / descrição (opcional)" />
+        </div>
+      ))}
+      <button onClick={addSlot} style={styles.linkBtn}>+ {tr.add} horário</button>
     </div>
   );
 }
@@ -1114,6 +1267,8 @@ const styles = {
   accomCard: { border: `1px solid ${NAVY}20`, borderRadius: 16, overflow: "hidden" },
   accomImg: { width: "100%", maxHeight: 260, objectFit: "cover", display: "block" },
   ibanCard: { marginTop: 24, border: `1px solid ${NAVY}20`, borderRadius: 16, padding: "22px 24px", background: `${NAVY}05` },
+  prepRow: { display: "flex", gap: 18, padding: "14px 0", borderBottom: `1px solid ${NAVY}12`, alignItems: "baseline" },
+  prepTime: { fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 600, minWidth: 72 },
   tableSearch: { width: "100%", border: `1px solid ${NAVY}25`, borderRadius: 100, padding: "12px 20px", fontSize: 15, marginTop: 18, color: NAVY, background: "#fff" },
   tablesLocked: { textAlign: "center", padding: "50px 24px", marginTop: 24, border: `1px solid ${NAVY}15`, borderRadius: 16, background: `${NAVY}05` },
   progressWrap: { position: "relative", height: 26, background: `${NAVY}10`, borderRadius: 100, overflow: "hidden" },
