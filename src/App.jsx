@@ -64,6 +64,10 @@ const T = {
     copied: "Copiado!",
     prep: "Preparações do dia 14",
     prepSchedule: "Horários da preparação",
+    floorPlan: "Planta da sala",
+    floorPlanHint: "A mesa dos noivos fica junto ao Lagar. A numeração cresce em direção ao Mezzanine. O nº 13 não existe. As mesas A e B são do staff.",
+    uploadFloorPlan: "Carregar planta da sala",
+    floorPlanUploading: "A carregar planta…",
   },
   en: {
     nav: ["Home", "Schedule", "Map", "Tables", "Updates", "Gallery", "Stay", "Wishlist", "Getting Ready"],
@@ -89,6 +93,10 @@ const T = {
     copied: "Copied!",
     prep: "Getting ready — August 14th",
     prepSchedule: "Getting ready schedule",
+    floorPlan: "Floor plan",
+    floorPlanHint: "The couple's table is next to the Lagar. Numbering increases towards the Mezzanine. There is no table 13. Tables A and B are for the staff.",
+    uploadFloorPlan: "Upload floor plan",
+    floorPlanUploading: "Uploading floor plan…",
   },
 };
 
@@ -300,7 +308,39 @@ function MapSec({ tr, lang, data }) {
           </Card>
         ))}
       </div>
+      {data.floorPlan && (
+        <div style={{ marginTop: 28 }}>
+          <h3 style={{ ...styles.h2, marginBottom: 6 }}>{tr.floorPlan}</h3>
+          <p style={{ ...styles.body, marginBottom: 14 }}>{tr.floorPlanHint}</p>
+          <FloorPlanImage src={data.floorPlan} alt={tr.floorPlan} />
+        </div>
+      )}
     </section>
+  );
+}
+
+function FloorPlanImage({ src, alt }) {
+  const [zoom, setZoom] = useState(false);
+  return (
+    <>
+      <img
+        src={src}
+        alt={alt}
+        onClick={() => setZoom(true)}
+        style={{ width: "100%", borderRadius: 12, border: `1px solid ${NAVY}18`, cursor: "zoom-in", display: "block" }}
+      />
+      {zoom && (
+        <div
+          onClick={() => setZoom(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", zIndex: 1000,
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 16, cursor: "zoom-out",
+          }}
+        >
+          <img src={src} alt={alt} style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 8 }} />
+        </div>
+      )}
+    </>
   );
 }
 
@@ -331,6 +371,13 @@ function Tables({ tr, lang, data }) {
   return (
     <section>
       <h2 style={styles.h2Big}>{tr.tables}</h2>
+
+      {data.floorPlan && (
+        <div style={{ marginTop: 8, marginBottom: 20 }}>
+          <p style={{ ...styles.body, marginBottom: 12 }}>{tr.floorPlanHint}</p>
+          <FloorPlanImage src={data.floorPlan} alt={tr.floorPlan} />
+        </div>
+      )}
 
       <input
         type="text"
@@ -788,6 +835,7 @@ function AdminPanel({ onClose, admin, setAdmin, tr, content, setContent, data, s
 function AdminEditor({ tr, content, setContent, data, setData, onLogout }) {
   const [tab, setTab] = useState("text");
   const photoRef = useRef();
+  const planRef = useRef();
 
   const setText = (lang, key, val) =>
     setContent((c) => ({ ...c, [lang]: { ...c[lang], [key]: val } }));
@@ -806,9 +854,30 @@ function AdminEditor({ tr, content, setContent, data, setData, onLogout }) {
     r.readAsDataURL(f);
   };
 
+  const [planUploading, setPlanUploading] = useState(false);
+  const onFloorPlan = async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setPlanUploading(true);
+    try {
+      if (hasCloudinary) {
+        const res = await uploadToCloudinary(f);
+        setData((d) => ({ ...d, floorPlan: res.url }));
+      } else {
+        const r = new FileReader();
+        r.onload = () => setData((d) => ({ ...d, floorPlan: r.result }));
+        r.readAsDataURL(f);
+      }
+    } catch (err) {
+      alert("Erro no upload: " + err.message);
+    } finally {
+      setPlanUploading(false);
+    }
+  };
+
   const tabs = [
     ["text", "Textos"], ["schedule", "Programa"], ["locations", "Mapa"],
-    ["tables", "Mesas"], ["alerts", "Novidades"], ["accommodation", "Alojamento"], ["wishlist", "Lista Desejos"], ["prep", "Preparações"], ["photo", "Foto"],
+    ["tables", "Mesas"], ["alerts", "Novidades"], ["accommodation", "Alojamento"], ["wishlist", "Lista Desejos"], ["prep", "Preparações"], ["photo", "Foto"], ["floorplan", "Planta"],
   ];
 
   return (
@@ -883,6 +952,24 @@ function AdminEditor({ tr, content, setContent, data, setData, onLogout }) {
           <input ref={photoRef} type="file" accept="image/*" onChange={onPhoto} style={{ display: "none" }} />
           {data.heroPhoto && (
             <button onClick={() => setData((d) => ({ ...d, heroPhoto: "" }))} style={{ ...styles.pill, marginTop: 10 }}>
+              {tr.delete}
+            </button>
+          )}
+        </div>
+      )}
+      {tab === "floorplan" && (
+        <div>
+          <p style={styles.fieldLabel}>{tr.floorPlan}</p>
+          <p style={{ ...styles.body, fontSize: 14, marginBottom: 12 }}>
+            Aparece no separador "Indicações" (visível já) e no topo do "Plano de mesas". Recomendado: imagem nítida da planta com os números.
+          </p>
+          {data.floorPlan && <img src={data.floorPlan} alt="" style={{ width: "100%", borderRadius: 12, marginBottom: 12, border: `1px solid ${NAVY}18` }} />}
+          <button onClick={() => planRef.current.click()} style={styles.linkBtn} disabled={planUploading}>
+            {planUploading ? tr.floorPlanUploading : tr.uploadFloorPlan}
+          </button>
+          <input ref={planRef} type="file" accept="image/*" onChange={onFloorPlan} style={{ display: "none" }} />
+          {data.floorPlan && (
+            <button onClick={() => setData((d) => ({ ...d, floorPlan: "" }))} style={{ ...styles.pill, marginTop: 10 }}>
               {tr.delete}
             </button>
           )}
