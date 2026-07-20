@@ -308,13 +308,6 @@ function MapSec({ tr, lang, data }) {
           </Card>
         ))}
       </div>
-      {data.floorPlan && (
-        <div style={{ marginTop: 28 }}>
-          <h3 style={{ ...styles.h2, marginBottom: 6 }}>{tr.floorPlan}</h3>
-          <p style={{ ...styles.body, marginBottom: 14 }}>{tr.floorPlanHint}</p>
-          <FloorPlanImage src={data.floorPlan} alt={tr.floorPlan} />
-        </div>
-      )}
     </section>
   );
 }
@@ -374,7 +367,6 @@ function Tables({ tr, lang, data }) {
 
       {data.floorPlan && (
         <div style={{ marginTop: 8, marginBottom: 20 }}>
-          <p style={{ ...styles.body, marginBottom: 12 }}>{tr.floorPlanHint}</p>
           <FloorPlanImage src={data.floorPlan} alt={tr.floorPlan} />
         </div>
       )}
@@ -961,7 +953,7 @@ function AdminEditor({ tr, content, setContent, data, setData, onLogout }) {
         <div>
           <p style={styles.fieldLabel}>{tr.floorPlan}</p>
           <p style={{ ...styles.body, fontSize: 14, marginBottom: 12 }}>
-            Aparece no separador "Indicações" (visível já) e no topo do "Plano de mesas". Recomendado: imagem nítida da planta com os números.
+            Aparece no topo do "Plano de mesas". Recomendado: imagem nítida da planta com os números.
           </p>
           {data.floorPlan && <img src={data.floorPlan} alt="" style={{ width: "100%", borderRadius: 12, marginBottom: 12, border: `1px solid ${NAVY}18` }} />}
           <button onClick={() => planRef.current.click()} style={styles.linkBtn} disabled={planUploading}>
